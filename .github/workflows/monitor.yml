@@ -1,0 +1,60 @@
+name: Monitor JRT tickets
+
+on:
+  schedule:
+    # Offset from the top of the hour, when scheduled Actions are often busiest.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      send_test_email:
+        description: "Send an email even if all Riga performances are sold out"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: jrt-ticket-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run parser tests
+        run: python -m unittest discover -v
+
+      - name: Restore notification state
+        uses: actions/cache/restore@v4
+        with:
+          path: .state/last_seen.json
+          key: jrt-state-${{ github.run_id }}
+          restore-keys: |
+            jrt-state-
+
+      - name: Check repertoire
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+        run: |
+          args=()
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.send_test_email }}" == "true" ]]; then
+            args+=(--force-email)
+          fi
+          python monitor.py "${args[@]}"
+
+      - name: Save notification state
+        uses: actions/cache/save@v4
+        with:
+          path: .state/last_seen.json
+          key: jrt-state-${{ github.run_id }}
