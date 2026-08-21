@@ -3,14 +3,8 @@ name: Monitor JRT tickets
 on:
   schedule:
     # Offset from the top of the hour, when scheduled Actions are often busiest.
-    - cron: "7,22,37,52 * * * *"
+    - cron: "5,35 * * * *"
   workflow_dispatch:
-    inputs:
-      send_test_email:
-        description: "Send an email even if all Riga performances are sold out"
-        required: false
-        default: true
-        type: boolean
 
 concurrency:
   group: jrt-ticket-monitor
@@ -46,12 +40,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           EMAIL_FROM: ${{ vars.EMAIL_FROM }}
-        run: |
-          args=()
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.send_test_email }}" == "true" ]]; then
-            args+=(--force-email)
-          fi
-          python monitor.py "${args[@]}"
+        run: python monitor.py
 
       - name: Save notification state
         uses: actions/cache/save@v4
